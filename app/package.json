@@ -1,0 +1,12 @@
+{
+  "name": "gke-test",
+  "version": "1.0.0",
+  "description": "A simple test app for exploring GKE",
+  "main": "index.js",
+  "repository": "https://github.com/epiphone/gke-test",
+  "author": "Aleksi Pekkala",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.16.4"
+  }
+}
