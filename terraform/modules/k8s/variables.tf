@@ -13,3 +13,7 @@ variable cluster_ca_certificate {
 variable host {
   type = "string"
 }
+
+variable env {
+  type = "string"
+}
