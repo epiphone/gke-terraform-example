@@ -18,7 +18,7 @@ The following steps need to be completed manually to set up the project before a
 2. For each Google Cloud project,
   - set up a Cloud Storage bucket for [remote Terraform state](https://www.terraform.io/docs/backends/types/gcs.html)
   - set up a service IAM account to be used by Terraform. Attach the `Editor` role to the created user
-  - run `terraform init` to initialize Terraform providers
+  - run `cd terraform/<ENV> && terraform init` to initialize Terraform providers
 
 ## Manual deployment
 
@@ -32,7 +32,7 @@ The following steps need to be completed manually to set up the project before a
 ## TODO
 
 - networking
-- (load balancing)[https://cloud.google.com/kubernetes-engine/docs/tutorials/http-balancer]
+- [load balancing](https://cloud.google.com/kubernetes-engine/docs/tutorials/http-balancer)
 - secrets
 - tune down Terraform IAM user role, least privilege
 - multizone GKE cluster
