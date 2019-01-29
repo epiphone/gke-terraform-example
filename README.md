@@ -22,8 +22,12 @@ The following steps need to be completed manually to set up the project before a
 
 ## Manual deployment
 
-1. Update infra: `terraform apply`
-2. Follow [instructions](https://cloud.google.com/kubernetes-engine/docs/tutorials/hello-app) on building and pushing a Docker image to GKE
+1. Update infra: `cd terraform/dev && terraform apply`
+2. Follow [instructions](https://cloud.google.com/kubernetes-engine/docs/tutorials/hello-app) on building and pushing a Docker image to GKE:
+  - `cd app`
+  - `export PROJECT_ID="$(gcloud config get-value project -q)"`
+  - `docker build -t gcr.io/${PROJECT_ID}/hello-app:v1 .`
+  - `gcloud docker -- push gcr.io/${PROJECT_ID}/hello-app:v1`
 
 ## TODO
 
@@ -31,3 +35,5 @@ The following steps need to be completed manually to set up the project before a
 - (load balancing)[https://cloud.google.com/kubernetes-engine/docs/tutorials/http-balancer]
 - secrets
 - tune down Terraform IAM user role, least privilege
+- multizone GKE cluster
+- explicitly define provider versions

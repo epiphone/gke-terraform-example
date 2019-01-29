@@ -19,34 +19,18 @@ provider "google" {
   zone        = "${var.zone}"
 }
 
-resource "google_container_cluster" "gke_cluster" {
-  name                     = "gke-cluster-${local.env}"
-  remove_default_node_pool = true
+module "gke" {
+  source = "../modules/gke"
 
-  node_pool {
-    name = "default-pool"
-  }
+  env = "${local.env}"
 }
 
-resource "google_container_node_pool" "gke_pool" {
-  name       = "gke-pool-${local.env}"
-  cluster    = "${google_container_cluster.gke_cluster.name}"
-  node_count = "1"
+module "k8s" {
+  source = "../modules/k8s"
 
-  management {
-    auto_repair  = true
-    auto_upgrade = true
-  }
-
-  node_config {
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/compute",
-      "https://www.googleapis.com/auth/devstorage.read_only",
-      "https://www.googleapis.com/auth/logging.write",
-      "https://www.googleapis.com/auth/monitoring",
-    ]
-
-    disk_size_gb = 10
-    machine_type = "n1-standard-1"
-  }
+  env                    = "${local.env}"
+  host                   = "${module.gke.host}"
+  client_certificate     = "${module.gke.client_certificate}"
+  client_key             = "${module.gke.client_key}"
+  cluster_ca_certificate = "${module.gke.cluster_ca_certificate}"
 }
