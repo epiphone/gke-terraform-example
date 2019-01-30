@@ -1,7 +1,7 @@
 version: 2.1
 
 commands:
-  buildAndPushImage:
+  build-and-push-image:
     description: "Build Docker image, push to Google Container Repository"
     parameters:
       gcloud_service_key:
@@ -28,7 +28,7 @@ commands:
           name: Push image to Google Container Repository
           command: gcloud docker -- push
 
-  applyTerraform:
+  apply-terraform:
     description: "Update infra to match Terraform spec"
     parameters:
       environment:
@@ -62,7 +62,7 @@ jobs:
     docker:
       - image: google/cloud-sdk:alpine
     steps:
-      - buildAndPushImage:
+      - build-and-push-image:
           gcloud_service_key: ${GCLOUD_SERVICE_KEY_DEV}
           google_project_id: ${GOOGLE_PROJECT_ID_DEV}
 
@@ -70,14 +70,14 @@ jobs:
     docker:
       - image: hashicorp/terraform:light
     steps:
-      - applyTerraform:
+      - apply-terraform:
           environment: "dev"
 
   build-and-push-image-test:
     docker:
       - image: google/cloud-sdk:alpine
     steps:
-      - buildAndPushImage:
+      - build-and-push-image:
           gcloud_service_key: ${GCLOUD_SERVICE_KEY_TEST}
           google_project_id: ${GOOGLE_PROJECT_ID_TEST}
 
@@ -85,14 +85,14 @@ jobs:
     docker:
       - image: hashicorp/terraform:light
     steps:
-      - applyTerraform:
+      - apply-terraform:
           environment: "test"
 
   build-and-push-image-prod:
     docker:
       - image: google/cloud-sdk:alpine
     steps:
-      - buildAndPushImage:
+      - build-and-push-image:
           gcloud_service_key: ${GCLOUD_SERVICE_KEY_PROD}
           google_project_id: ${GOOGLE_PROJECT_ID_PROD}
 
@@ -100,7 +100,7 @@ jobs:
     docker:
       - image: hashicorp/terraform:light
     steps:
-      - applyTerraform:
+      - apply-terraform:
           environment: "prod"
 
 workflows:
