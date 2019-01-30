@@ -6,6 +6,9 @@
   "repository": "https://github.com/epiphone/gke-test",
   "author": "Aleksi Pekkala",
   "license": "MIT",
+  "scripts": {
+    "test": "echo 'OK!'"
+  },
   "dependencies": {
     "express": "^4.16.4"
   }

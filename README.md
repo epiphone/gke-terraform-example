@@ -37,3 +37,4 @@ The following steps need to be completed manually to set up the project before a
 - tune down Terraform IAM user role, least privilege
 - multizone GKE cluster
 - explicitly define provider versions
+- set Google Cloud provider services https://cloud.google.com/service-usage/docs/list-services
