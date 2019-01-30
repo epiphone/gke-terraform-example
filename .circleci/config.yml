@@ -104,7 +104,6 @@ jobs:
           environment: "prod"
 
 workflows:
-  version: 2
   test-build-deploy:
     jobs:
       - test
