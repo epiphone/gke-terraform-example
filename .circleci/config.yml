@@ -1,4 +1,42 @@
-version: 2
+version: 2.1
+
+commands:
+  buildAndPushImage:
+    description: "Build Docker image, push to Google Container Repository"
+    parameters:
+      gcloud_service_key:
+        type: string
+      google_project_id:
+        type: string
+    steps:
+      - run:
+          name: Authenticate Google Cloud client
+          command: |
+            echo << gcloud_service_key >> > ${HOME}/gcloud-service-key.json
+            gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            gcloud --quiet config set project << google_project_id >>
+      - setup_remote_docker
+      - run:
+          name: Build Docker image
+          command: |
+            cd app
+            docker build \
+              --build-arg COMMIT_REF=${CIRCLE_SHA1} \
+              --build-arg BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”` \
+              -t eu.gcr.io/<< google_project_id >>/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1} .
+      - run:
+          name: Push image to Google Container Repository
+          command: gcloud docker -- push
+
+  applyTerraform:
+    description: "Update infra to match Terraform spec"
+    parameters:
+      environment:
+        type: enum
+        enum: ["dev", "test", "prod"]
+    steps:
+      - run: cd terraform/<< environment >> && echo 'Updating infra at ' `pwd`
+
 jobs:
   test:
     docker:
@@ -19,8 +57,93 @@ jobs:
       - run:
           name: Run tests
           command: cd app && yarn test
+
+  build-and-push-image-dev:
+    docker:
+      - image: google/cloud-sdk:alpine
+    steps:
+      - buildAndPushImage:
+          gcloud_service_key: ${GCLOUD_SERVICE_KEY_DEV}
+          google_project_id: ${GOOGLE_PROJECT_ID_DEV}
+
+  deploy-dev:
+    docker:
+      - image: hashicorp/terraform:light
+    steps:
+      - applyTerraform:
+          environment: "dev"
+
+  build-and-push-image-test:
+    docker:
+      - image: google/cloud-sdk:alpine
+    steps:
+      - buildAndPushImage:
+          gcloud_service_key: ${GCLOUD_SERVICE_KEY_TEST}
+          google_project_id: ${GOOGLE_PROJECT_ID_TEST}
+
+  deploy-test:
+    docker:
+      - image: hashicorp/terraform:light
+    steps:
+      - applyTerraform:
+          environment: "test"
+
+  build-and-push-image-prod:
+    docker:
+      - image: google/cloud-sdk:alpine
+    steps:
+      - buildAndPushImage:
+          gcloud_service_key: ${GCLOUD_SERVICE_KEY_PROD}
+          google_project_id: ${GOOGLE_PROJECT_ID_PROD}
+
+  deploy-prod:
+    docker:
+      - image: hashicorp/terraform:light
+    steps:
+      - applyTerraform:
+          environment: "prod"
+
 workflows:
   version: 2
-  release_pipeline:
+  test-build-deploy:
     jobs:
-    - test
+      - test
+      - build-and-push-image-dev:
+          requires:
+            - test
+          filters:
+            branches:
+              only: dev
+      - deploy-dev:
+          requires:
+            - build-and-push-image-dev
+          filters:
+            branches:
+              only: dev
+
+      # - build-and-push-image-test:
+      #     requires:
+      #       - test
+      #     filters:
+      #       branches:
+      #         only: test
+      # - deploy-test:
+      #     requires:
+      #       - build-and-push-image-test
+      #     filters:
+      #       branches:
+      #         only: test
+
+      # - build-and-push-image-prod:
+      #     requires:
+      #       - test
+      #     filters:
+      #       branches:
+      #         only: master
+      # - deploy-prod:
+      #     requires:
+      #       - build-and-push-image-prod
+      #     filters:
+      #       branches:
+      #         only: master
+      #     type: approval

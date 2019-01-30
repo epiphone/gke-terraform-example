@@ -1,4 +1,6 @@
 # gke-test
+[![CircleCI](https://circleci.com/gh/epiphone/gke-terraform-example/tree/master.svg?style=svg)](https://circleci.com/gh/epiphone/gke-terraform-example/tree/master)
+
 Exploring Google Kubernetes Engine. Includes
 - a simple test app dockerized and running on Google Kubernetes Engine
 - Postgres instance on Cloud SQL
@@ -19,6 +21,8 @@ The following steps need to be completed manually to set up the project before a
   - set up a Cloud Storage bucket for [remote Terraform state](https://www.terraform.io/docs/backends/types/gcs.html)
   - set up a service IAM account to be used by Terraform. Attach the `Editor` role to the created user
   - run `cd terraform/<ENV> && terraform init` to initialize Terraform providers
+3. Add environment variables to your CircleCI config
+  - `GCLOUD_SERVICE_KEY_DEV` and `GOOGLE_PROJECT_ID_DEV` plus the same for `_TEST` and `_PROD`
 
 ## Manual deployment
 
@@ -38,3 +42,4 @@ The following steps need to be completed manually to set up the project before a
 - multizone GKE cluster
 - explicitly define provider versions
 - set Google Cloud provider services https://cloud.google.com/service-usage/docs/list-services
+- prevent Cloud SQL destroy akin to Cloudformation `retain`: https://www.terraform.io/docs/configuration/resources.html#meta-parameters
