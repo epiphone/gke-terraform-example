@@ -5,16 +5,16 @@ commands:
     description: "Build Docker image, push to Google Container Repository"
     parameters:
       gcloud_service_key:
-        type: string
+        type: env_var_name
       google_project_id:
-        type: string
+        type: env_var_name
     steps:
       - run:
           name: Authenticate Google Cloud client
           command: |
-            echo '<< parameters.gcloud_service_key >>' > ${HOME}/gcloud-service-key.json
+            echo ${<< parameters.gcloud_service_key >>} > ${HOME}/gcloud-service-key.json
             gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-            gcloud --quiet config set project << parameters.google_project_id >>
+            gcloud --quiet config set project ${<< parameters.google_project_id >>}
       - setup_remote_docker
       - run:
           name: Build Docker image
@@ -23,7 +23,7 @@ commands:
             docker build \
               --build-arg COMMIT_REF=${CIRCLE_SHA1} \
               --build-arg BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”` \
-              -t eu.gcr.io/<< parameters.google_project_id >>/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1} .
+              -t eu.gcr.io/${<< parameters.google_project_id >>}/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1} .
       - run:
           name: Push image to Google Container Repository
           command: gcloud docker -- push
@@ -63,8 +63,8 @@ jobs:
       - image: google/cloud-sdk:alpine
     steps:
       - build-and-push-image:
-          gcloud_service_key: "${GCLOUD_SERVICE_KEY_DEV}"
-          google_project_id: "${GOOGLE_PROJECT_ID_DEV}"
+          gcloud_service_key: GCLOUD_SERVICE_KEY_DEV
+          google_project_id: GOOGLE_PROJECT_ID_DEV
 
   deploy-dev:
     docker:
@@ -78,8 +78,8 @@ jobs:
       - image: google/cloud-sdk:alpine
     steps:
       - build-and-push-image:
-          gcloud_service_key: "${GCLOUD_SERVICE_KEY_TEST}"
-          google_project_id: "${GOOGLE_PROJECT_ID_TEST}"
+          gcloud_service_key: GCLOUD_SERVICE_KEY_TEST
+          google_project_id: GOOGLE_PROJECT_ID_TEST
 
   deploy-test:
     docker:
@@ -93,8 +93,8 @@ jobs:
       - image: google/cloud-sdk:alpine
     steps:
       - build-and-push-image:
-          gcloud_service_key: "${GCLOUD_SERVICE_KEY_PROD}"
-          google_project_id: "${GOOGLE_PROJECT_ID_PROD}"
+          gcloud_service_key: GCLOUD_SERVICE_KEY_PROD
+          google_project_id: GOOGLE_PROJECT_ID_PROD
 
   deploy-prod:
     docker:
