@@ -25,12 +25,12 @@ commands:
             docker build \
               --build-arg COMMIT_REF=${CIRCLE_SHA1} \
               --build-arg BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”` \
-              -t eu.gcr.io/${<< parameters.google_project_id >>}/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1} .
+              -t eu.gcr.io/${<< parameters.google_project_id >>}/gke-app:${CIRCLE_SHA1} .
       - run:
           name: Push image to Google Container Registry
           command: |
             gcloud auth configure-docker
-            docker push eu.gcr.io/${<< parameters.google_project_id >>}/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1}
+            docker push eu.gcr.io/${<< parameters.google_project_id >>}/gke-app:${CIRCLE_SHA1}
 
   apply-terraform:
     description: "Update infra to match Terraform spec"
