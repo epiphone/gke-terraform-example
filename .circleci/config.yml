@@ -12,9 +12,9 @@ commands:
       - run:
           name: Authenticate Google Cloud client
           command: |
-            echo '<< gcloud_service_key >>' > ${HOME}/gcloud-service-key.json
+            echo '<< paramaters.gcloud_service_key >>' > ${HOME}/gcloud-service-key.json
             gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-            gcloud --quiet config set project << google_project_id >>
+            gcloud --quiet config set project << paramaters.google_project_id >>
       - setup_remote_docker
       - run:
           name: Build Docker image
@@ -23,7 +23,7 @@ commands:
             docker build \
               --build-arg COMMIT_REF=${CIRCLE_SHA1} \
               --build-arg BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”` \
-              -t eu.gcr.io/<< google_project_id >>/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1} .
+              -t eu.gcr.io/<< paramaters.google_project_id >>/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1} .
       - run:
           name: Push image to Google Container Repository
           command: gcloud docker -- push
@@ -35,7 +35,7 @@ commands:
         type: enum
         enum: ["dev", "test", "prod"]
     steps:
-      - run: cd terraform/<< environment >> && echo 'Updating infra at ' `pwd`
+      - run: cd terraform/<< paramaters.environment >> && echo 'Updating infra at ' `pwd`
 
 jobs:
   test:
