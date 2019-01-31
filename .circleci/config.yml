@@ -112,6 +112,7 @@ workflows:
   test-build-deploy:
     jobs:
       - test
+
       - build-and-push-image-dev:
           requires:
             - test
@@ -123,22 +124,23 @@ workflows:
             - build-and-push-image-dev
           filters:
             branches:
-              only: dev
+              ignore:
+                - master
 
       # - build-and-push-image-test:
       #     requires:
       #       - test
       #     filters:
       #       branches:
-      #         only: test
+      #         only: master
       # - deploy-test:
       #     requires:
       #       - build-and-push-image-test
       #     filters:
       #       branches:
-      #         only: test
+      #         only: master
 
-      # - build-and-push-image-prod:
+      # - build-and-push-image-prod: TODO use image built in test stage
       #     requires:
       #       - test
       #     filters:
