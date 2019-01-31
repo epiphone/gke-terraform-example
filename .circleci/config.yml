@@ -12,7 +12,7 @@ commands:
       - run:
           name: Authenticate Google Cloud client
           command: |
-            echo << gcloud_service_key >> > ${HOME}/gcloud-service-key.json
+            echo '<< gcloud_service_key >>' > ${HOME}/gcloud-service-key.json
             gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             gcloud --quiet config set project << google_project_id >>
       - setup_remote_docker
@@ -63,8 +63,8 @@ jobs:
       - image: google/cloud-sdk:alpine
     steps:
       - build-and-push-image:
-          gcloud_service_key: ${GCLOUD_SERVICE_KEY_DEV}
-          google_project_id: ${GOOGLE_PROJECT_ID_DEV}
+          gcloud_service_key: "${GCLOUD_SERVICE_KEY_DEV}"
+          google_project_id: "${GOOGLE_PROJECT_ID_DEV}"
 
   deploy-dev:
     docker:
@@ -78,8 +78,8 @@ jobs:
       - image: google/cloud-sdk:alpine
     steps:
       - build-and-push-image:
-          gcloud_service_key: ${GCLOUD_SERVICE_KEY_TEST}
-          google_project_id: ${GOOGLE_PROJECT_ID_TEST}
+          gcloud_service_key: "${GCLOUD_SERVICE_KEY_TEST}"
+          google_project_id: "${GOOGLE_PROJECT_ID_TEST}"
 
   deploy-test:
     docker:
@@ -93,8 +93,8 @@ jobs:
       - image: google/cloud-sdk:alpine
     steps:
       - build-and-push-image:
-          gcloud_service_key: ${GCLOUD_SERVICE_KEY_PROD}
-          google_project_id: ${GOOGLE_PROJECT_ID_PROD}
+          gcloud_service_key: "${GCLOUD_SERVICE_KEY_PROD}"
+          google_project_id: "${GOOGLE_PROJECT_ID_PROD}"
 
   deploy-prod:
     docker:
