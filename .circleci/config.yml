@@ -2,13 +2,14 @@ version: 2.1
 
 commands:
   build-and-push-image:
-    description: "Build Docker image, push to Google Container Repository"
+    description: "Build Docker image, push to Google Container Registry"
     parameters:
       gcloud_service_key:
         type: env_var_name
       google_project_id:
         type: env_var_name
     steps:
+      - run: apk add docker
       - run:
           name: Authenticate Google Cloud client
           command: |
@@ -26,8 +27,10 @@ commands:
               --build-arg BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”` \
               -t eu.gcr.io/${<< parameters.google_project_id >>}/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1} .
       - run:
-          name: Push image to Google Container Repository
-          command: gcloud docker -- push
+          name: Push image to Google Container Registry
+          command: |
+            gcloud auth configure-docker
+            docker push eu.gcr.io/${<< parameters.google_project_id >>}/${DOCKER_IMAGE_NAME}:${CIRCLE_SHA1}
 
   apply-terraform:
     description: "Update infra to match Terraform spec"
