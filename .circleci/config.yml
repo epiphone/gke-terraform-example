@@ -16,6 +16,7 @@ commands:
             gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
             gcloud --quiet config set project ${<< parameters.google_project_id >>}
       - setup_remote_docker
+      - checkout
       - run:
           name: Build Docker image
           command: |
@@ -35,6 +36,7 @@ commands:
         type: enum
         enum: ["dev", "test", "prod"]
     steps:
+      - checkout
       - run: cd terraform/<< parameters.environment >> && echo 'Updating infra at ' `pwd`
 
 jobs:
