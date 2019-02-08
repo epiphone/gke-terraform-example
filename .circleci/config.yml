@@ -1,23 +1,51 @@
 version: 2.1
 
+executors:
+  default-executor:
+    docker:
+      - image: google/cloud-sdk:alpine
+    environment:
+      CLOUDSDK_CORE_DISABLE_PROMPTS: "1"
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcloud-service-key.json
+      TF_IN_AUTOMATION: "true"
+
 commands:
-  build-and-push-image:
-    description: "Build Docker image, push to Google Container Registry"
+  deploy:
+    description: Build and push docker image, update infra and kubernetes application
     parameters:
+      db_password:
+        type: env_var_name
+      domain:
+        type: env_var_name
       gcloud_service_key:
         type: env_var_name
       google_project_id:
         type: env_var_name
     steps:
-      - run: apk add docker
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --no-cache bind-tools docker gettext
+            apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community terraform
+            gcloud components install kubectl
+            wget https://github.com/garethr/kubeval/releases/download/0.7.3/kubeval-linux-amd64.tar.gz
+            tar xzvf kubeval-linux-amd64.tar.gz
+            chmod u+x kubeval
+
+      # Build docker image & push to GCR:
       - run:
           name: Authenticate Google Cloud client
           command: |
-            echo ${<< parameters.gcloud_service_key >>} > ${HOME}/gcloud-service-key.json
-            gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
-            gcloud --quiet config set project ${<< parameters.google_project_id >>}
+            echo ${<< parameters.gcloud_service_key >>} > ${GOOGLE_APPLICATION_CREDENTIALS}
+            gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
+            gcloud config set project ${<< parameters.google_project_id >>}
+      - run:
+          name: Persist app image tag to make it available for later steps
+          command: echo eu.gcr.io/${<< parameters.google_project_id >>}/gke-app:${CIRCLE_SHA1} > /tmp/app_image
+      - store_artifacts:
+          path: /tmp/app_image
       - setup_remote_docker
-      - checkout
       - run:
           name: Build Docker image
           command: |
@@ -25,22 +53,86 @@ commands:
             docker build \
               --build-arg COMMIT_REF=${CIRCLE_SHA1} \
               --build-arg BUILD_DATE=`date -u +”%Y-%m-%dT%H:%M:%SZ”` \
-              -t eu.gcr.io/${<< parameters.google_project_id >>}/gke-app:${CIRCLE_SHA1} .
+              -t `cat /tmp/app_image` .
       - run:
           name: Push image to Google Container Registry
           command: |
             gcloud auth configure-docker
-            docker push eu.gcr.io/${<< parameters.google_project_id >>}/gke-app:${CIRCLE_SHA1}
+            docker push `cat /tmp/app_image`
 
-  apply-terraform:
-    description: "Update infra to match Terraform spec"
-    parameters:
-      environment:
-        type: enum
-        enum: ["dev", "test", "prod"]
-    steps:
-      - checkout
-      - run: cd terraform/<< parameters.environment >> && echo 'Updating infra at ' `pwd`
+      # Update infra:
+      - run:
+          name: Initialize, validate and apply Terraform
+          command: |
+            export TF_VAR_cluster_ip_address=$(gcloud compute forwarding-rules list --global --filter="name:k8s-fw-*" --format="value(IPAddress)")
+            export TF_VAR_db_password=${<< parameters.db_password >>}
+            export TF_VAR_domain=${<< parameters.domain >>}
+            export TF_VAR_k8s_master_allowed_ip=$K8S_MASTER_ALLOWED_IP
+            export TF_VAR_project_id=${<< parameters.google_project_id >>}
+            cd terraform/${ENV}
+            terraform init -input=false
+            terraform validate
+            terraform plan -out=/tmp/tfplan -input=false
+            terraform apply -input=false -auto-approve /tmp/tfplan
+            terraform refresh
+      # TODO: store artifact when in private CircleCI project
+      # - store_artifacts:
+      #     path: /tmp/tfplan
+
+      # Update Kubernetes application:
+      - run:
+          name: Populate Kubernetes declaration with parameters and lint
+          command: |
+            cd terraform/${ENV}
+            export APP_IMAGE=`cat /tmp/app_image`
+            export CORS_ALLOW_ORIGIN=http://${<< parameters.domain >>}
+            export PROJECT_NAME=gke-${ENV}
+            export PGHOST=$(terraform output db_host)
+            export PGUSER=$(terraform output db_username)
+            export PGDATABASE=$(terraform output db_name)
+            export PGPASSWORD=$(terraform output db_password)
+            export PGPORT=5432
+            cd ../..
+            envsubst < ./k8s/k8s.yml > /tmp/k8s_filled.yml
+            ./kubeval /tmp/k8s_filled.yml
+      # TODO: store artifact when in private CircleCI project
+      # - store_artifacts:
+      #     path: /tmp/k8s_filled.yml
+      - run:
+          name: Authenticate kubectl
+          command: |
+            cd terraform/${ENV}
+            gcloud container clusters get-credentials $(terraform output cluster_name) --zone $(terraform output cluster_zone)
+      - run:
+          name: Temporarily add CI server to k8s master allowed IPs
+          command: |
+            cd terraform/${ENV}
+            gcloud container clusters update $(terraform output cluster_name) \
+              --enable-master-authorized-networks \
+              --master-authorized-networks=$(terraform output k8s_master_allowed_ip)/32,$(dig +short myip.opendns.com @resolver1.opendns.com)/32 \
+              --zone=$(terraform output cluster_zone)
+      - run:
+          name: Apply kubectl
+          command: kubectl apply -f /tmp/k8s_filled.yml && kubectl rollout status deployment/gke-${ENV}
+      - run:
+          name: Remove CI server from k8s master allowed IPs
+          command: |
+            cd terraform/${ENV}
+            gcloud container clusters update $(terraform output cluster_name) \
+              --enable-master-authorized-networks \
+              --master-authorized-networks=$(terraform output k8s_master_allowed_ip)/32 \
+              --zone=$(terraform output cluster_zone)
+          when: always
+      - run:
+          name: Copy static assets to GCS bucket, invalidate CDN cache
+          command: |
+            cd terraform/${ENV}
+            export ROOT_DOMAIN_NAME=${<< parameters.domain >>}
+            envsubst < ../../app/static/index.html > ../../app/static/index.html.filled
+            mv ../../app/static/index.html.filled ../../app/static/index.html
+            gsutil rm $(terraform output static_assets_bucket_url)/** 2> /dev/null || true # Ignore error thrown due to empty bucket on first run
+            gsutil cp -r ../../app/static/** $(terraform output static_assets_bucket_url)
+            gcloud compute url-maps invalidate-cdn-cache $(terraform output static_assets_urlmap_name) --path "/*" --async
 
 jobs:
   test:
@@ -63,92 +155,67 @@ jobs:
           name: Run tests
           command: cd app && yarn test
 
-  build-and-push-image-dev:
-    docker:
-      - image: google/cloud-sdk:alpine
+  deploy-dev:
+    executor: default-executor
+    environment:
+      ENV: dev
     steps:
-      - build-and-push-image:
+      - deploy:
+          db_password: DB_PASSWORD_DEV
+          domain: ROOT_DOMAIN_NAME_DEV
           gcloud_service_key: GCLOUD_SERVICE_KEY_DEV
           google_project_id: GOOGLE_PROJECT_ID_DEV
 
-  deploy-dev:
-    docker:
-      - image: hashicorp/terraform:light
+  deploy-test:
+    executor: default-executor
+    environment:
+      ENV: test
     steps:
-      - apply-terraform:
-          environment: "dev"
-
-  build-and-push-image-test:
-    docker:
-      - image: google/cloud-sdk:alpine
-    steps:
-      - build-and-push-image:
+      - deploy:
+          db_password: DB_PASSWORD_TEST
+          domain: ROOT_DOMAIN_NAME_TEST
           gcloud_service_key: GCLOUD_SERVICE_KEY_TEST
           google_project_id: GOOGLE_PROJECT_ID_TEST
 
-  deploy-test:
-    docker:
-      - image: hashicorp/terraform:light
+  deploy-prod:
+    executor: default-executor
+    environment:
+      ENV: prod
     steps:
-      - apply-terraform:
-          environment: "test"
-
-  build-and-push-image-prod:
-    docker:
-      - image: google/cloud-sdk:alpine
-    steps:
-      - build-and-push-image:
+      - deploy:
+          db_password: DB_PASSWORD_PROD
+          domain: ROOT_DOMAIN_NAME_PROD
           gcloud_service_key: GCLOUD_SERVICE_KEY_PROD
           google_project_id: GOOGLE_PROJECT_ID_PROD
-
-  deploy-prod:
-    docker:
-      - image: hashicorp/terraform:light
-    steps:
-      - apply-terraform:
-          environment: "prod"
 
 workflows:
   test-build-deploy:
     jobs:
       - test
 
-      - build-and-push-image-dev:
-          requires:
-            - test
-          filters:
-            branches:
-              only: dev
+      # Push to any non-master branch triggers deployment to `dev` environment:
       - deploy-dev:
           requires:
-            - build-and-push-image-dev
+            - test
           filters:
             branches:
               ignore:
                 - master
 
-      # - build-and-push-image-test:
-      #     requires:
-      #       - test
-      #     filters:
-      #       branches:
-      #         only: master
+      # Uncomment the following blocks to enable test and production environments:
+
+      # Push to master branch triggers deployment to `test` environment:
       # - deploy-test:
       #     requires:
-      #       - build-and-push-image-test
+      #       - test
       #     filters:
       #       branches:
       #         only: master
 
-      # - build-and-push-image-prod: TODO use image built in test stage
-      #     requires:
-      #       - test
-      #     filters:
-      #       branches:
-      #         only: master
+      # Push to master branch triggers deployment to `production` environment, with a further manual approval step in CircleCI UI:
       # - deploy-prod:
       #     requires:
-      #       - build-and-push-image-prod
+      #       - test
       #     filters:
       #       branches:
       #         only: master

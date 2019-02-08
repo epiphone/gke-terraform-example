@@ -6,31 +6,56 @@ terraform {
   required_version = "0.11.11"
 
   backend "gcs" {
-    bucket      = "tf-state-gke-dev"
-    credentials = "terraform-service-account-dev-credentials.json"
-    prefix      = "terraform-state-dev"
+    bucket = "gke-tfstate-dev"
   }
 }
 
 provider "google" {
-  credentials = "${file("terraform-service-account-dev-credentials.json")}" # Make sure to exclude from version control!
-  project     = "${var.project_id}"
-  region      = "${var.region}"
-  zone        = "${var.zone}"
+  version = "1.20.0"
+
+  project = "${var.project_id}"
+  region  = "${var.region}"
+  zone    = "${var.zone}"
+}
+
+provider "google-beta" {
+  version = "1.20.0"
+
+  project = "${var.project_id}"
+  region  = "${var.region}"
+  zone    = "${var.zone}"
 }
 
 module "gke" {
   source = "../modules/gke"
 
-  env = "${local.env}"
+  env                   = "${local.env}"
+  region                = "${var.region}"
+  network_name          = "gke-network"
+  k8s_master_allowed_ip = "${var.k8s_master_allowed_ip}"
 }
 
-module "k8s" {
-  source = "../modules/k8s"
+module "cloud_sql" {
+  source = "../modules/cloud_sql"
 
-  env                    = "${local.env}"
-  host                   = "${module.gke.host}"
-  client_certificate     = "${module.gke.client_certificate}"
-  client_key             = "${module.gke.client_key}"
-  cluster_ca_certificate = "${module.gke.cluster_ca_certificate}"
+  network  = "${module.gke.network}"
+  region   = "${var.region}"
+  db_name  = "gke-${local.env}"
+  username = "gke-${local.env}"
+  password = "${var.db_password}"
+}
+
+module "assets" {
+  source = "../modules/assets"
+
+  env      = "${local.env}"
+  location = "${var.region}"
+}
+
+module "dns" {
+  source = "../modules/dns"
+
+  domain             = "${var.domain}"
+  assets_ip_address  = "${module.assets.public_address}"
+  cluster_ip_address = "${var.cluster_ip_address}"
 }

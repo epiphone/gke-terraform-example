@@ -60,4 +60,6 @@ typings/
 # next.js build output
 .next
 .terraform/
+*.tfvars
 *-credentials.json
+terraform.tfstate.*.backup
