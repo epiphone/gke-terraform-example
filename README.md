@@ -1,22 +1,21 @@
-# gke-test
+# Google Kubernetes Engine full-stack example
 [![CircleCI](https://circleci.com/gh/epiphone/gke-terraform-example/tree/master.svg?style=svg)](https://circleci.com/gh/epiphone/gke-terraform-example/tree/master)
 
-A sample setup of Google Kubernetes Engine & Cloud SQL. Consists of
+An example of deploying a web app on GKE. Consists of
 - **GKE cluster** with a single node pool
   - [VPC-native](https://cloud.google.com/kubernetes-engine/docs/how-to/alias-ips), [private](https://cloud.google.com/kubernetes-engine/docs/how-to/private-clusters) and using [container-native load-balancing](https://cloud.google.com/kubernetes-engine/docs/how-to/container-native-load-balancing)
-  - access to the cluster master is limited to a single whitelisted IP: check the `K8S_MASTER_ALLOWED_IP` env variable below
-- **Postgres Cloud SQL** instance with [private networking](https://cloud.google.com/blog/products/databases/introducing-private-networking-connection-for-cloud-sql)
-  - Cloud SQL is connected to GKE through a [private IP](https://cloud.google.com/sql/docs/mysql/connect-kubernetes-engine#private-ip), ensuring db traffic is never exposed to the public internet
-- Static assets served from **Cloud Storage** through **Cloud Load Balancer** with **Cloud CDN** enabled
+  - access to cluster master is limited to a single whitelisted IP: check the `K8S_MASTER_ALLOWED_IP` env variable below
+- **Cloud SQL Postgres** instance with [private networking](https://cloud.google.com/blog/products/databases/introducing-private-networking-connection-for-cloud-sql)
+  - connects to GKE through a [private IP](https://cloud.google.com/sql/docs/mysql/connect-kubernetes-engine#private-ip), ensuring traffic is never exposed to the public internet
+- **Cloud Storage** and **Cloud CDN** for serving static assets
   - currently using a separate load balancer from the cluster because `ingress-gce` [lacks support for backend buckets](https://github.com/kubernetes/ingress-gce/issues/33)
+- **Cloud DNS** for domain management
+    - check `ROOT_DOMAIN_NAME_<ENV>` below
 - **Terraform**-defined infrastructure
-  - split into three modules of `gke`, `cloud_sql` and `assets` as well as environment-specific starting points
-  - we're not using the [Kubernetes Terraform provider](https://github.com/terraform-providers/terraform-provider-kubernetes) as its missing e.g. an Ingress type: using instead the [regular Kubernetes .yml notation](/k8s/k8s.yml) and `kubectl`
-- **multi-env** CI pipeline on **CircleCI**
-  - push to any non-master branch triggers update to `dev` environment
-  - push to `master` branch triggers update to `test` environment
-  - additional approval step at CircleCI UI after `test` environment update triggers `prod` environment update
-  - Terraform plan file, Kubernetes config and newly built Docker image tag are stored into CircleCI as test artifacts
+  - using `kubectl` directly instead of the [Kubernetes Terraform provider](https://github.com/terraform-providers/terraform-provider-kubernetes) as the latter is missing an Ingress type, among others
+- **CircleCI** pipeline
+  - push to any non-master branch triggers `dev` deployment & push to `master` branch triggers `test` deployment
+  - `prod` deployment triggered by an additional approval step at CircleCI UI
 
 ![architecture sketch](/doc/gke-sample-app.png)
 
@@ -28,8 +27,6 @@ The following steps need to be completed manually before automation kicks in:
 2. For each Google Cloud project,
     - set up a Cloud Storage bucket for storing [remote Terraform state](https://www.terraform.io/docs/backends/types/gcs.html)
     - set up a service IAM account to be used by Terraform. Attach the `Editor` and `Compute Network Agent` roles to the created user
-    - [login](https://cloud.google.com/sdk/gcloud/reference/auth/activate-service-account) with the service account
-    - run `cd terraform/<ENV> && terraform init` to initialize Terraform providers
 3. Set environment variables in your CircleCI project (replacing `ENV` with an uppercase `DEV`, `TEST` and `PROD`):
     - `GOOGLE_PROJECT_ID_<ENV>`: env-specific Google project id
     - `GCLOUD_SERVICE_KEY_<ENV>`: env-specific service account key
