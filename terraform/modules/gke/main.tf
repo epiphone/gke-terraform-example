@@ -2,6 +2,12 @@ data "google_container_engine_versions" "gke_versions" {}
 
 data "google_project" "project" {}
 
+data "google_container_registry_image" "default" {
+  name   = "gke-${var.env}"
+  region = "eu"
+  tag    = "${var.image_tag}"
+}
+
 resource "google_compute_network" "gke_network" {
   provider                = "google"
   name                    = "${var.network_name}"
@@ -71,7 +77,7 @@ resource "google_container_node_pool" "gke_pool" {
   provider   = "google"
   name       = "gke-pool-${var.env}"
   cluster    = "${google_container_cluster.gke_cluster.name}"
-  node_count = "1"
+  node_count = "${var.node_count}"
 
   management {
     auto_repair  = true
@@ -87,6 +93,6 @@ resource "google_container_node_pool" "gke_pool" {
     ]
 
     disk_size_gb = 10
-    machine_type = "n1-standard-1"
+    machine_type = "${var.machine_type}"
   }
 }

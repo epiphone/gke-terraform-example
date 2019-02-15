@@ -6,25 +6,21 @@ output "cluster_zone" {
   value = "${module.gke.cluster_zone}"
 }
 
-output "db_host" {
-  value = "${module.cloud_sql.host}"
+output "domain" {
+  value = "${var.domain}"
 }
 
-output "db_name" {
-  value = "${module.cloud_sql.db_name}"
-}
-
-output "db_username" {
-  value = "${module.cloud_sql.username}"
-}
-
-output "db_password" {
-  value     = "${module.cloud_sql.password}"
-  sensitive = true
+output "image_url" {
+  value = "${module.gke.image_url}"
 }
 
 output "k8s_master_allowed_ip" {
   value     = "${var.k8s_master_allowed_ip}"
+  sensitive = true
+}
+
+output "k8s_rendered_template" {
+  value     = "${data.template_file.k8s.rendered}"
   sensitive = true
 }
 

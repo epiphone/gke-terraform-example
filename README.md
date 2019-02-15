@@ -58,8 +58,8 @@ You can also sidestep CI and deploy locally:
     - `docker build -t gcr.io/${PROJECT_ID}/gke-app:v1 .`
     - `gcloud docker -- push gcr.io/${PROJECT_ID}/gke-app:v1`
 5. Authenticate `kubectl`: `gcloud container clusters get-credentials $(terraform output cluster_name) --zone=$(terraform output cluster_zone)`
-6. Set Kubernetes variables: `PROJECT_NAME=gke-dev APP_IMAGE=eu.gcr.io/... envsubst < k8s/k8s.yml > k8s_filled.yml`
-7. Update Kubernetes resources: `kubectl apply -f k8s_filled.yml`
+6. Render Kubernetes config template: `terraform output k8s_rendered_template > k8s.yml`
+7. Update Kubernetes resources: `kubectl apply -f k8s.yml`
 
 Read [here](https://cloud.google.com/sql/docs/postgres/quickstart-proxy-test) on how to connect to the Cloud SQL instance with a local `psql` client.
 

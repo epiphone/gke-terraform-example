@@ -11,7 +11,7 @@ terraform {
 }
 
 provider "google" {
-  version = "1.20.0"
+  version = "2.0.0"
 
   project = "${var.project_id}"
   region  = "${var.region}"
@@ -19,7 +19,7 @@ provider "google" {
 }
 
 provider "google-beta" {
-  version = "1.20.0"
+  version = "2.0.0"
 
   project = "${var.project_id}"
   region  = "${var.region}"
@@ -30,9 +30,12 @@ module "gke" {
   source = "../modules/gke"
 
   env                   = "${local.env}"
-  region                = "${var.region}"
-  network_name          = "gke-network"
+  image_tag             = "${var.commit_hash}"
   k8s_master_allowed_ip = "${var.k8s_master_allowed_ip}"
+  machine_type          = "n1-standard-1"
+  network_name          = "gke-network"
+  node_count            = "1"
+  region                = "${var.region}"
 }
 
 module "cloud_sql" {
@@ -58,4 +61,19 @@ module "dns" {
   domain             = "${var.domain}"
   assets_ip_address  = "${module.assets.public_address}"
   cluster_ip_address = "${var.cluster_ip_address}"
+}
+
+data "template_file" "k8s" {
+  template = "${file("${path.module}/k8s.template.yml")}"
+
+  vars = {
+    cors_allow_origin = "http://${var.domain}"
+    db_host           = "${module.cloud_sql.host}"
+    db_name           = "${module.cloud_sql.db_name}"
+    db_username       = "${module.cloud_sql.username}"
+    db_password       = "${module.cloud_sql.password}"
+    db_port           = "5432"
+    image_url         = "${module.gke.image_url}"
+    project_name      = "gke-${local.env}"
+  }
 }

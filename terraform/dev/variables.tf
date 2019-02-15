@@ -1,3 +1,8 @@
+variable "commit_hash" {
+  description = "Git commit hash, e.g. '1cdf2b5eb1a1f7967a9fa3587b1537823ddebaa5e'"
+  type        = "string"
+}
+
 variable "project_id" {
   type = "string"
 }
