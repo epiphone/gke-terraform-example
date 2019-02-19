@@ -32,6 +32,6 @@ output "static_assets_bucket_url" {
   value = "${module.assets.bucket_url}"
 }
 
-output "static_assets_urlmap_name" {
-  value = "${module.assets.urlmap_name}"
+output "urlmap_name" {
+  value = "${module.lb.urlmap_name}"
 }

@@ -1,4 +1,3 @@
-const cors = require("cors");
 const express = require("express");
 const pg = require("pg");
 
@@ -7,11 +6,6 @@ const buildDate = process.env.APP_BUILD_DATE || "N/A";
 const port = process.env.PORT || 3000;
 
 const app = express();
-app.use(
-  cors({
-    origin: process.env.CORS_ALLOW_ORIGIN
-  })
-);
 const client = new pg.Client();
 client.connect();
 
@@ -20,7 +14,7 @@ app.get("/", (req, res) => {
   res.send(text);
 });
 
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
   client
     .query("SELECT NOW() as now")
     .then(({ rows }) => {
