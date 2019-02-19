@@ -1,12 +1,7 @@
-variable "assets_ip_address" {
+variable "domain" {
   type = "string"
 }
 
-variable "cluster_ip_address" {
-  type    = "string"
-  default = ""
-}
-
-variable "domain" {
+variable "load_balancer_ip_address" {
   type = "string"
 }

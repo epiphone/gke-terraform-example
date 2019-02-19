@@ -8,7 +8,8 @@ An example of deploying a web app on GKE. Consists of
 - **Cloud SQL Postgres** instance with [private networking](https://cloud.google.com/blog/products/databases/introducing-private-networking-connection-for-cloud-sql)
   - connects to GKE through a [private IP](https://cloud.google.com/sql/docs/mysql/connect-kubernetes-engine#private-ip), ensuring traffic is never exposed to the public internet
 - **Cloud Storage** and **Cloud CDN** for serving static assets
-  - currently using a separate load balancer from the cluster because `ingress-gce` [lacks support for backend buckets](https://github.com/kubernetes/ingress-gce/issues/33)
+- **Cloud Load Balancing** routing `/api/*` to GKE and the rest to the static assets bucket
+  - implemented in a bit of a roundabout way since `ingress-gce` [lacks support for backend buckets](https://github.com/kubernetes/ingress-gce/issues/33): we're [passing](.circleci/config.yml#L132) GKE backend's name in Terraform variables and attaching it to our default URL map
 - **Cloud DNS** for domain management
     - check `ROOT_DOMAIN_NAME_<ENV>` below
 - **Terraform**-defined infrastructure
@@ -63,13 +64,14 @@ You can also sidestep CI and deploy locally:
 
 Read [here](https://cloud.google.com/sql/docs/postgres/quickstart-proxy-test) on how to connect to the Cloud SQL instance with a local `psql` client.
 
-## Further work & improvements
+## Further work
 
 - Cloud SQL high availability & automated backups
 - [regional GKE cluster](https://cloud.google.com/kubernetes-engine/docs/concepts/regional-clusters)
+- GKE autoscaling
+- Cloud Armor DDoS protection
 - SSL
 - tune down service accounts privileges
-- share the same load balancer between api and assets once the [ingress-gce issue](https://github.com/kubernetes/ingress-gce/issues/33) gets resolved
 - possible CI improvements:
     - add a step to [clean up old container images from GCR](https://gist.github.com/ahmetb/7ce6d741bd5baa194a3fac6b1fec8bb7)
     - prompt for extra approval on infra changes in master

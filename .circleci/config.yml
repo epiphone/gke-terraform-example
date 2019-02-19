@@ -113,7 +113,7 @@ commands:
       - run:
           name: Install dependencies
           command: |
-            apk add --no-cache bind-tools docker gettext
+            apk add --no-cache bind-tools docker gettext jq
             apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community terraform
             gcloud components install kubectl
             wget https://github.com/garethr/kubeval/releases/download/0.7.3/kubeval-linux-amd64.tar.gz
@@ -128,7 +128,10 @@ commands:
       - run:
           name: Initialize Terraform
           command: |
-            export CLUSTER_IP_ADDRESS=$(gcloud compute forwarding-rules list --global --filter="name:k8s-fw-*" --format="value(IPAddress)")
+            export SERVICE_NAME=default/gke-$ENV
+            export K8S_BACKEND_SERVICE_NAME=$(gcloud compute backend-services list  \
+              --format=json | jq '.[] | select(.description | fromjson | ."kubernetes.io/service-name" == $service_name) | .name' \
+              --arg service_name "$SERVICE_NAME" --raw-output)
             envsubst < ./terraform.tfvars.template > ./terraform.tfvars
             terraform init -input=false
             terraform validate
@@ -188,10 +191,7 @@ commands:
       - run:
           name: Copy static assets to GCS bucket, invalidate CDN cache
           command: |
-            export ROOT_DOMAIN_NAME=$(terraform output domain)
-            envsubst < ../../app/static/index.html > ../../app/static/index.html.filled
-            mv ../../app/static/index.html.filled ../../app/static/index.html
             gsutil rm $(terraform output static_assets_bucket_url)/** 2> /dev/null || true # Ignore error thrown due to empty bucket on first run
             gsutil cp -r ../../app/static/** $(terraform output static_assets_bucket_url)
-            gcloud compute url-maps invalidate-cdn-cache $(terraform output static_assets_urlmap_name) --path "/*" --async
+            gcloud compute url-maps invalidate-cdn-cache $(terraform output urlmap_name) --path "/*" --async
 

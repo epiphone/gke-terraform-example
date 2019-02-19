@@ -37,8 +37,6 @@ spec:
         - name: ${project_name}
           image: ${image_url}
           env:
-            - name: CORS_ALLOW_ORIGIN
-              value: '${cors_allow_origin}'
             - name: NODE_ENV
               value: 'production'
             - name: PORT

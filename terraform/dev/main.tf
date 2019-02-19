@@ -55,25 +55,31 @@ module "assets" {
   location = "${var.region}"
 }
 
+module "lb" {
+  source = "../modules/lb"
+
+  assets_bucket_name       = "${module.assets.bucket_name}"
+  enable_cdn               = true
+  k8s_backend_service_name = "${var.k8s_backend_service_name}"
+}
+
 module "dns" {
   source = "../modules/dns"
 
-  domain             = "${var.domain}"
-  assets_ip_address  = "${module.assets.public_address}"
-  cluster_ip_address = "${var.cluster_ip_address}"
+  domain                   = "${var.domain}"
+  load_balancer_ip_address = "${module.lb.public_address}"
 }
 
 data "template_file" "k8s" {
-  template = "${file("${path.module}/k8s.template.yml")}"
+  template = "${file("${path.module}/../k8s.template.yml")}"
 
   vars = {
-    cors_allow_origin = "http://${var.domain}"
-    db_host           = "${module.cloud_sql.host}"
-    db_name           = "${module.cloud_sql.db_name}"
-    db_username       = "${module.cloud_sql.username}"
-    db_password       = "${module.cloud_sql.password}"
-    db_port           = "5432"
-    image_url         = "${module.gke.image_url}"
-    project_name      = "gke-${local.env}"
+    db_host      = "${module.cloud_sql.host}"
+    db_name      = "${module.cloud_sql.db_name}"
+    db_username  = "${module.cloud_sql.username}"
+    db_password  = "${module.cloud_sql.password}"
+    db_port      = "5432"
+    image_url    = "${module.gke.image_url}"
+    project_name = "gke-${local.env}"
   }
 }
